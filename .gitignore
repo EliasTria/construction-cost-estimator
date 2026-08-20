@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+estimates.db
+cost_cache.json
+.DS_Store
+Thumbs.db

@@ -1,0 +1,16 @@
+{
+  "rates": {
+    "renovation_per_sqm": 5.0,
+    "build_per_sqm": 5.0,
+    "house_per_sqm": 10.0,
+    "apartment_per_sqm": 10.0,
+    "villa_per_sqm": 20.0
+  },
+  "loan_thresholds": {
+    "renovation": 5000,
+    "build_small": 5000,
+    "house": 15000,
+    "apartment": 15000,
+    "villa": 50000
+  }
+}
