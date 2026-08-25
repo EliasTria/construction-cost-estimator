@@ -1,0 +1,33 @@
+{
+  "rates": {
+    "renovation_per_sqm": 5.0,
+    "build_small_per_sqm": 5.0,
+    "house_per_sqm": 10.0,
+    "apartment_per_sqm": 10.0,
+    "villa_per_sqm": 20.0
+  },
+  "loan_thresholds": {
+    "renovation": 5000,
+    "build_small": 5000,
+    "house": 15000,
+    "apartment": 15000,
+    "villa": 50000
+  },
+  "api_url": "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/PRC_HICP_COICOP",
+  "api_params": {
+    "geo": "EL",
+    "coicop": "CP043",
+    "format": "JSON"
+  },
+  "base_rate_per_sqm": 1600.0,
+  "base_index_value": 100.0,
+  "cache_file": "costs_cache.json",
+  "cache_ttl_hours": 168,
+  "rate_multipliers": {
+    "renovation": 0.35,
+    "build_small": 0.35,
+    "house": 1.0,
+    "apartment": 1.0,
+    "villa": 1.8
+  }
+}

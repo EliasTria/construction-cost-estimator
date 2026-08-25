@@ -1,18 +1,71 @@
 import json
+import requests
+from datetime import datetime, timedelta
+from pathlib import Path
 
-def load_config(path="costs.json"):
+def load_static_config(path="config.json"):
+    """Load committed configuration (endpoints, multipliers, fallbacks)."""
+    with open(path) as f:
+        return json.load(f)
+
+def get_live_rates(config):
+    """Fetch live construction cost index → calculate real €/sqm rates."""
+    cache_path = Path(config["cache_file"])
+    
+    # Check cache freshness
+    if cache_path.exists():
+        try:
+            with open(cache_path) as f:
+                cached = json.load(f)
+            age = datetime.now() - datetime.fromisoformat(cached["fetched_at"])
+            if age < timedelta(hours=config["cache_ttl_hours"]):
+                print(f"[CACHE] Using rates from {cached['fetched_at']}")
+                return cached["rates"]
+        except (json.JSONDecodeError, KeyError, ValueError):
+            pass  # Corrupt cache, refetch
+    
+    # Fetch live from Eurostat
     try:
-        with open(path) as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+        resp = requests.get(
+            config["api_url"],
+            params=config["api_params"],
+            timeout=10
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        
+        # TODO: Adjust key path based on actual API response
+        current_index = float(data["value"][-1])
+        
+        base_rate = config["base_rate_per_sqm"] * (current_index / config["base_index_value"])
+        
+        rates = {
+            f"{ptype}_per_sqm": round(base_rate * mult, 2)
+            for ptype, mult in config["rate_multipliers"].items()
+        }
+        
+        # Cache result
+        with open(cache_path, "w") as f:
+            json.dump({
+                "rates": rates,
+                "index_value": current_index,
+                "fetched_at": datetime.now().isoformat()
+            }, f)
+        
+        print(f"[LIVE] Index: {current_index} | Base rate: €{base_rate:.2f}/sqm")
+        return rates
+        
+    except Exception as e:
+        print(f"[FALLBACK] API failed ({e}). Using calibrated defaults.")
         return {
-            "rates": {"renovation_per_sqm": 5.0, "build_small_per_sqm": 5.0,
-                      "house_per_sqm": 10.0, "apartment_per_sqm": 10.0, "villa_per_sqm": 20.0},
-            "loan_thresholds": {"renovation": 5000, "build_small": 5000,
-                                "house": 15000, "apartment": 15000, "villa": 50000}
+            f"{k}_per_sqm": round(v * config["base_rate_per_sqm"], 2)
+            for k, v in config["rate_multipliers"].items()
         }
 
-CONFIG = load_config()
+# Module-level initialization
+STATIC_CONFIG = load_static_config()
+RATES = get_live_rates(STATIC_CONFIG)
+CONFIG = STATIC_CONFIG
 
 def get_loan_terms(loan_type):
     terms = {
@@ -37,7 +90,7 @@ if (budget) <= 5000:
 
     project=input("Do you want to do a renovation or build a small apartment? ")
     if project == "renovation":
-        rate = CONFIG["rates"]["renovation_per_sqm"]
+        rate = RATES["renovation_per_sqm"]
         threshold = CONFIG["loan_thresholds"]["renovation"]
         renovation_cost = float(input("How big of a renovation in square meters? ")) * rate
         if renovation_cost >= threshold:
@@ -49,7 +102,7 @@ if (budget) <= 5000:
         else:
             print("Have a great time")
     elif project == "build":
-        rate = CONFIG["rates"]["build_small_per_sqm"]
+        rate = RATES["build_small_per_sqm"]
         threshold = CONFIG["loan_thresholds"]["build_small"]
         build_cost = float(input("How big of a house do you want to build in square meters? ")) * rate
         if build_cost >= threshold:
@@ -67,7 +120,7 @@ elif (budget) <=15000:
 
     project=input("Do you want to build a small house or an apartment? ")
     if project == "small house":
-        rate = CONFIG["rates"]["house_per_sqm"]
+        rate = RATES["house_per_sqm"]
         threshold = CONFIG["loan_thresholds"]["house"]
         house_cost = float(input("How big of a house do you want to build in square meters? ")) * rate
         if house_cost >= threshold:
@@ -79,7 +132,7 @@ elif (budget) <=15000:
         else:
             print("Have a great time")
     elif project == "apartment":
-        rate = CONFIG["rates"]["apartment_per_sqm"]
+        rate = RATES["apartment_per_sqm"]
         threshold = CONFIG["loan_thresholds"]["apartment"]
         apartment_cost=float(input("How big of an apartment do you want to build? ")) * rate
         if apartment_cost >= threshold:
@@ -93,7 +146,7 @@ elif (budget) <=15000:
 elif (budget) <=50000:
     print("You can build a villa")
 
-    rate = CONFIG["rates"]["villa_per_sqm"]
+    rate = RATES["villa_per_sqm"]
     threshold = CONFIG["loan_thresholds"]["villa"]
     villa_cost = float(input("How big of a villa do you want?")) * rate
     if villa_cost >= threshold:
