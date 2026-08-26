@@ -13,10 +13,10 @@
     "apartment": 15000,
     "villa": 50000
   },
-  "api_url": "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/PRC_HICP_COICOP",
+  "api_url": "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/prc_hicp_manr",
   "api_params": {
     "geo": "EL",
-    "coicop": "CP043",
+    "coicop": "CP04",
     "format": "JSON"
   },
   "base_rate_per_sqm": 1600.0,

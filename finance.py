@@ -35,7 +35,9 @@ def get_live_rates(config):
         data = resp.json()
         
         # TODO: Adjust key path based on actual API response
-        current_index = float(data["value"][-1])
+        values = list(data["value"].values())
+        latest_change = float(values[-1])
+        current_index = 100 * (1 + latest_change / 100)
         
         base_rate = config["base_rate_per_sqm"] * (current_index / config["base_index_value"])
         
@@ -85,7 +87,7 @@ def handle_loan_process():
 
 budget=float(input("Whats your budget €?"))
 
-if (budget) <= 5000:
+if (budget) <= 50000:
     print("You can do a renovation or build a small apartment")
 
     project=input("Do you want to do a renovation or build a small apartment? ")
@@ -115,7 +117,7 @@ if (budget) <= 5000:
             print("Have a great time")
     else: print("Please, write one of the two.")
 
-elif (budget) <=15000:
+elif (budget) <=150000:
     print("You can build a small house or an apartment")
 
     project=input("Do you want to build a small house or an apartment? ")
@@ -143,7 +145,7 @@ elif (budget) <=15000:
                 handle_loan_process()
         else:
             print("Have a great time")
-elif (budget) <=50000:
+elif (budget) <=500000:
     print("You can build a villa")
 
     rate = RATES["villa_per_sqm"]
