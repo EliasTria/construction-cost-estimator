@@ -69,6 +69,35 @@ STATIC_CONFIG = load_static_config()
 RATES = get_live_rates(STATIC_CONFIG)
 CONFIG = STATIC_CONFIG
 
+def display_estimate_summary(project_type , sq_meters , budget):
+    rate = RATES[f"{project_type}_per_sqm"]
+    total_cost = round(rate * sq_meters, 2)
+    threshold = CONFIG["loan_thresholds"][project_type]
+
+    print(f"\n ESTIMATE SUMMARY")
+    print(f"   Project:      {project_type.title()}")
+    print(f"   Size:         {sq_meters} sqm")
+    print(f"   Rate:         €{rate:,.2f}/sqm")
+    print(f"   Total Cost:   €{total_cost:,.2f}")
+    print(f"   Budget:       €{budget:,.2f}")
+    
+    if budget >= total_cost:
+        print(f"Surplus:   €{budget - total_cost:,.2f}")
+    else:
+        print(f"   Shortfall: €{total_cost - budget:,.2f}")
+    
+    needs_loan = total_cost > budget
+    shortfall = max(0, total_cost - budget)
+    max_loan = 100000  
+
+    if needs_loan and shortfall > max_loan:
+        print(f"     Cannot Build: Shortfall €{shortfall:,.2f} exceeds max loan €{max_loan:,.0f}")
+        print(f"     Need budget of at least €{total_cost - max_loan:,.2f} to proceed")
+        return total_cost, False  
+
+    print(f"   Needs Loan:    {'  Yes' if needs_loan else '  No'} (shortfall: €{shortfall:,.2f})")
+    return total_cost, True  
+
 def get_loan_terms(loan_type):
     terms = {
         "10.000": {"monthly_payment": 333.55, "term_months": 36, "interest_rate": "12%"},
@@ -85,78 +114,52 @@ def handle_loan_process():
     else:
         print("Invalid loan type. Please choose 10.000, 50.000, 100.000")
 
-budget=float(input("Whats your budget €?"))
+budget = float(input("What's your budget €? "))
 
-if (budget) <= 50000:
+if budget <= 50000:
     print("You can do a renovation or build a small apartment")
-
-    project=input("Do you want to do a renovation or build a small apartment? ")
+    project = input("Do you want to do a renovation or build a small apartment? ")
+    
     if project == "renovation":
-        rate = RATES["renovation_per_sqm"]
-        threshold = CONFIG["loan_thresholds"]["renovation"]
-        renovation_cost = float(input("How big of a renovation in square meters? ")) * rate
-        if renovation_cost >= threshold:
-            loan=input("Do you want a loan?(y/n)")
-            if loan == "n":
-                print("Sorry you cant build")
-            else:
-                handle_loan_process()
-        else:
-            print("Have a great time")
+        sq_meters = float(input("How big of a renovation in square meters? "))
+        total_cost, can_build = display_estimate_summary("renovation", sq_meters, budget)
     elif project == "build":
-        rate = RATES["build_small_per_sqm"]
-        threshold = CONFIG["loan_thresholds"]["build_small"]
-        build_cost = float(input("How big of a house do you want to build in square meters? ")) * rate
-        if build_cost >= threshold:
-            loan=input("Do you want a loan?(y/n)")
-            if loan == "n":
-                print("Sorry you cant build")
-            else:
-                handle_loan_process()
-        else:
-            print("Have a great time")
-    else: print("Please, write one of the two.")
-
-elif (budget) <=150000:
-    print("You can build a small house or an apartment")
-
-    project=input("Do you want to build a small house or an apartment? ")
-    if project == "small house":
-        rate = RATES["house_per_sqm"]
-        threshold = CONFIG["loan_thresholds"]["house"]
-        house_cost = float(input("How big of a house do you want to build in square meters? ")) * rate
-        if house_cost >= threshold:
-            loan=input("Do you want a loan?(y/n)")
-            if loan == "n":
-                print("Sorry you cant build")
-            else:
-                handle_loan_process()
-        else:
-            print("Have a great time")
-    elif project == "apartment":
-        rate = RATES["apartment_per_sqm"]
-        threshold = CONFIG["loan_thresholds"]["apartment"]
-        apartment_cost=float(input("How big of an apartment do you want to build? ")) * rate
-        if apartment_cost >= threshold:
-            loan=input("Do you want a loan?(y/n)")
-            if loan == "n":
-                print("Sorry you cant build")
-            else:
-                handle_loan_process()
-        else:
-            print("Have a great time")
-elif (budget) <=500000:
-    print("You can build a villa")
-
-    rate = RATES["villa_per_sqm"]
-    threshold = CONFIG["loan_thresholds"]["villa"]
-    villa_cost = float(input("How big of a villa do you want?")) * rate
-    if villa_cost >= threshold:
-        loan=input("Do you want a loan?(y/n)")
-        if loan == "n":
-            print("Sorry you cant build")
-        else:
-            handle_loan_process()
+        sq_meters = float(input("How big of a house do you want to build in square meters? "))
+        total_cost, can_build = display_estimate_summary("build_small", sq_meters, budget)
     else:
-        print("Have a great time")
-else: print("You can build a mansion or a scyscraper")
+        print("Please, write one of the two.")
+        exit()
+
+elif budget <= 160000:
+    print("You can build a small house or an apartment")
+    project = input("Do you want to build a small house or an apartment? ")
+    
+    if project == "small house":
+        sq_meters = float(input("How big of a house do you want to build in square meters? "))
+        total_cost, can_build = display_estimate_summary("house", sq_meters, budget)
+    elif project == "apartment":
+        sq_meters = float(input("How big of an apartment do you want to build? "))
+        total_cost, can_build = display_estimate_summary("apartment", sq_meters, budget)
+    else:
+        print("Please write one of two.")
+        exit()
+
+elif budget <= 1600000:
+    print("You can build a villa")
+    sq_meters = float(input("How big of a villa do you want? "))
+    total_cost, can_build = display_estimate_summary("villa", sq_meters, budget)
+
+else:
+    print("You can build a mansion or a skyscraper")
+    exit()
+
+if not can_build:
+    print("\n  Project not feasible with current budget and loan options.")
+elif total_cost > budget:
+    loan = input(f"\n   Shortfall: €{total_cost - budget:,.2f}. Do you want a loan? (y/n) ")
+    if loan == "n":
+        print("Sorry you can't build")
+    else:
+        handle_loan_process()
+else:
+    print("\n✅ Project fits within budget. No loan needed.")
