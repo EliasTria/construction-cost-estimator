@@ -2,6 +2,7 @@ import json
 import requests
 from datetime import datetime, timedelta
 from pathlib import Path
+from database import save_estimate, get_recent_estimates
 
 def load_static_config(path="config.json"):
     """Load committed configuration (endpoints, multipliers, fallbacks)."""
@@ -98,6 +99,28 @@ def display_estimate_summary(project_type , sq_meters , budget):
     print(f"   Needs Loan:    {'  Yes' if needs_loan else '  No'} (shortfall: €{shortfall:,.2f})")
     return total_cost, True  
 
+def process_and_save_estimate(project_type, sq_meters, budget):
+    """Calculate, display, handle loan, and save to DB."""
+    total_cost, can_build = display_estimate_summary(project_type, sq_meters, budget)
+    
+    if not can_build:
+        print("\n  Project not feasible with current budget and loan options.")
+        return
+    
+    took_loan = False
+    if total_cost > budget:
+        loan = input(f"\n   Shortfall: €{total_cost - budget:,.2f}. Do you want a loan? (y/n) ")
+        took_loan = (loan == "y")
+        if took_loan:
+            handle_loan_process()
+        else:
+            print("Sorry you can't build")
+            return
+    
+    surplus = budget - total_cost
+    save_estimate(project_type, sq_meters, budget, total_cost, took_loan, surplus)
+    print("\n  Estimate saved to history.")    
+
 def get_loan_terms(loan_type):
     terms = {
         "10.000": {"monthly_payment": 333.55, "term_months": 36, "interest_rate": "12%"},
@@ -116,6 +139,16 @@ def handle_loan_process():
 
 budget = float(input("What's your budget €? "))
 
+view_history = input("\nView recent estimates? (y/n): ").lower()
+if view_history == "y":
+    print("\n  RECENT ESTIMATES (Last 5)")
+    print("-" * 80)
+    for row in get_recent_estimates():
+        eid, ts, ptype, sqm, bud, cost, loan, surp = row
+        print(f"#{eid} | {ts[:16]} | {ptype:12} | {sqm:6.1f}sqm | Budget: €{bud:>10,.2f} | Cost: €{cost:>10,.2f} | Loan: {'Yes' if loan else 'No ':3} | Surplus: €{surp:>10,.2f}")
+    print("-" * 80)
+    input("\nPress Enter to continue...")
+
 if budget <= 50000:
     print("You can do a renovation or build a small apartment")
     project = input("Do you want to do a renovation or build a small apartment? ")
@@ -123,9 +156,11 @@ if budget <= 50000:
     if project == "renovation":
         sq_meters = float(input("How big of a renovation in square meters? "))
         total_cost, can_build = display_estimate_summary("renovation", sq_meters, budget)
+        process_and_save_estimate("renovation", sq_meters, budget)
     elif project == "build":
         sq_meters = float(input("How big of a house do you want to build in square meters? "))
         total_cost, can_build = display_estimate_summary("build_small", sq_meters, budget)
+        process_and_save_estimate("build_small", sq_meters, budget)
     else:
         print("Please, write one of the two.")
         exit()
@@ -137,9 +172,11 @@ elif budget <= 160000:
     if project == "small house":
         sq_meters = float(input("How big of a house do you want to build in square meters? "))
         total_cost, can_build = display_estimate_summary("house", sq_meters, budget)
+        process_and_save_estimate("house", sq_meters, budget)
     elif project == "apartment":
         sq_meters = float(input("How big of an apartment do you want to build? "))
         total_cost, can_build = display_estimate_summary("apartment", sq_meters, budget)
+        process_and_save_estimate("apartment", sq_meters, budget)
     else:
         print("Please write one of two.")
         exit()
@@ -148,6 +185,7 @@ elif budget <= 1600000:
     print("You can build a villa")
     sq_meters = float(input("How big of a villa do you want? "))
     total_cost, can_build = display_estimate_summary("villa", sq_meters, budget)
+    process_and_save_estimate("villa", sq_meters, budget)
 
 else:
     print("You can build a mansion or a skyscraper")
@@ -162,4 +200,4 @@ elif total_cost > budget:
     else:
         handle_loan_process()
 else:
-    print("\n✅ Project fits within budget. No loan needed.")
+    print("\n  Project fits within budget. No loan needed.")
