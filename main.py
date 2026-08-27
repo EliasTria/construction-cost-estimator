@@ -17,10 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 3. STATIC FILES
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
-
-# 4. MODELS
+# 3. MODELS
 class EstimateRequest(BaseModel):
     project_type: str
     sq_meters: float
@@ -35,11 +32,7 @@ class EstimateResponse(BaseModel):
     needs_loan: bool
     can_build: bool
 
-# 5. ROUTES
-@app.get("/")
-def root():
-    return {"message": "Construction Cost Estimator API", "docs": "/docs"}
-
+# 4. ROUTES — all registered BEFORE the static mount
 @app.post("/estimate", response_model=EstimateResponse)
 def create_estimate(req: EstimateRequest):
     valid_types = ["renovation", "build_small", "house", "apartment", "villa"]
@@ -85,3 +78,5 @@ def get_history():
 @app.get("/rates")
 def get_live_rates():
     return finance.RATES
+
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
