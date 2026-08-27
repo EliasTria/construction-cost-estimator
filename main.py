@@ -1,10 +1,26 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from database import save_estimate, get_recent_estimates
 import finance
 
+# 1. CREATE APP
 app = FastAPI(title="Construction Cost Estimator API", version="1.0.0")
 
+# 2. CORS MIDDLEWARE (MUST BE BEFORE ROUTES)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 3. STATIC FILES
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
+
+# 4. MODELS
 class EstimateRequest(BaseModel):
     project_type: str
     sq_meters: float
@@ -19,33 +35,27 @@ class EstimateResponse(BaseModel):
     needs_loan: bool
     can_build: bool
 
+# 5. ROUTES
 @app.get("/")
 def root():
     return {"message": "Construction Cost Estimator API", "docs": "/docs"}
 
 @app.post("/estimate", response_model=EstimateResponse)
 def create_estimate(req: EstimateRequest):
-    # Validate project type
     valid_types = ["renovation", "build_small", "house", "apartment", "villa"]
     if req.project_type not in valid_types:
         raise HTTPException(status_code=400, detail=f"Invalid project_type. Choose from: {valid_types}")
-    
-    # Calculate using existing logic
+
     rate = finance.RATES[f"{req.project_type}_per_sqm"]
     total_cost = round(rate * req.sq_meters, 2)
-    threshold = finance.CONFIG["loan_thresholds"][req.project_type]
-    
     needs_loan = total_cost > req.budget
     shortfall = max(0, total_cost - req.budget)
-    can_build = not needs_loan or shortfall <= 100000  # Max loan
-    
+    can_build = not needs_loan or shortfall <= 100000
     surplus = req.budget - total_cost
-    
-    # Save to DB if feasible
+
     if can_build:
-        took_loan = needs_loan
-        save_estimate(req.project_type, req.sq_meters, req.budget, total_cost, took_loan, surplus)
-    
+        save_estimate(req.project_type, req.sq_meters, req.budget, total_cost, needs_loan, surplus)
+
     return EstimateResponse(
         project_type=req.project_type,
         sq_meters=req.sq_meters,
