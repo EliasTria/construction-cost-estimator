@@ -4,6 +4,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from database import save_estimate, get_recent_estimates
 import finance
+from pydantic import BaseModel, Field
+
+
 
 # 1. CREATE APP
 app = FastAPI(title="Construction Cost Estimator API", version="1.0.0")
@@ -20,8 +23,8 @@ app.add_middleware(
 # 3. MODELS
 class EstimateRequest(BaseModel):
     project_type: str
-    sq_meters: float
-    budget: float
+    sq_meters: float = Field(gt=0, description="Must be positive")
+    budget: float = Field(gt=0, description="Must be positive")
 
 class EstimateResponse(BaseModel):
     project_type: str
